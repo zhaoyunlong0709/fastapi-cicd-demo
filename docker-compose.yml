@@ -1,0 +1,7 @@
+services:
+  fastapi-cicd-demo:
+    build: .
+    container_name: fastapi-cicd-demo
+    ports:
+      - "8000:8000"
+    restart: always

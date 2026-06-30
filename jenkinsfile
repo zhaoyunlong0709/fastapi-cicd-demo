@@ -1,0 +1,73 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Create Virtualenv') {
+            steps {
+                sh '''
+                python3 -m venv .venv
+                . .venv/bin/activate
+                pip install --upgrade pip
+                pip install -r requirements.txt
+                '''
+            }
+        }
+
+        stage('Lint') {
+            steps {
+                sh '''
+                . .venv/bin/activate
+                ruff check .
+                '''
+            }
+        }
+
+        stage('Unit Test') {
+            steps {
+                sh '''
+                . .venv/bin/activate
+                mkdir -p reports
+                pytest -q --junitxml=reports/junit.xml
+                '''
+            }
+        }
+
+        stage('Docker Build and Deploy') {
+            steps {
+                sh '''
+                docker compose down || true
+                docker compose up -d --build
+                '''
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                sh '''
+                sleep 5
+                curl -f http://127.0.0.1:8000/health
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            junit 'reports/junit.xml'
+        }
+
+        success {
+            echo 'Pipeline passed.'
+        }
+
+        failure {
+            echo 'Pipeline failed.'
+        }
+    }
+}
